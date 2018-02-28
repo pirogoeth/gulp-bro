@@ -57,7 +57,9 @@ function createBundler(opts, file, transform) {
   // omit file contents to make browserify-incremental work propery
   // on main entry (#4)
   opts.entries = file.path
-  opts.basedir = path.dirname(file.path)
+  if (!opts.basedir) {
+    opts.basedir = path.dirname(file.path)
+  }
 
   let bundler = bundlers[file.path]
 
