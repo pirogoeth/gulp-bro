@@ -1,12 +1,13 @@
 /*eslint no-sync: 0, no-inline-comments: 0*/
 import test from 'ava'
-import bro from '../'
+import { bro, getBundler } from '../'
 import assert from 'stream-assert'
 import vfs from 'vinyl-fs'
 import catchStdout from 'catch-stdout'
 import babelify from 'babelify'
 import chokidar from 'chokidar'
 import fs from 'fs'
+import path from 'path'
 
 test.cb('bundle a file', t => {
   vfs.src('test/fixtures/a+b.js')
@@ -167,4 +168,54 @@ test.cb('accept an external option, #25', t => {
       d => t.is(d.contents.toString().match(/exports = '[ab]'/g).length, 1)
     ))
     .pipe(assert.end(t.end))
+})
+
+test.cb('does not override `opts.basedir` if set', t => {
+  let opts = {
+    basedir: path.resolve('./test/fixtures')
+  }
+
+  let sourceFile = path.resolve('./test/fixtures/a+b.js')
+
+  let stream = vfs.src(sourceFile)
+    .pipe(bro(opts))
+    .pipe(assert.length(1))
+    .pipe(assert.first(
+      d => t.deepEqual(
+        d.contents.toString().match(/exports = '[ab]'/g),
+        ["exports = 'a'", "exports = 'b'"]
+      )
+    ))
+    .pipe(assert.end(t.end))
+
+  // Steal the bundler and check the opts.
+  stream.on('end', function() {
+    let bundler = getBundler(sourceFile)
+    t.truthy(bundler._options.basedir === path.dirname(sourceFile))
+  })
+})
+
+test.cb('inherits `basedir` from entry file if `null`', t => {
+  let opts = {
+    basedir: null
+  }
+
+  let sourceFile = path.resolve('./test/fixtures/a+b.js')
+
+  let stream = vfs.src(sourceFile)
+    .pipe(bro(opts))
+    .pipe(assert.length(1))
+    .pipe(assert.first(
+      d => t.deepEqual(
+        d.contents.toString().match(/exports = '[ab]'/g),
+        ["exports = 'a'", "exports = 'b'"]
+      )
+    ))
+    .pipe(assert.end(t.end))
+
+  // Steal the bundler and check the opts.
+  stream.on('end', () => {
+    let bundler = getBundler(sourceFile)
+    t.truthy(bundler._options.basedir === path.dirname(sourceFile))
+  })
 })

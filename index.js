@@ -22,7 +22,21 @@ function bro(opts, callback) {
   return transform(opts)
 }
 
-module.exports = bro
+/**
+ * Return the bundler for the entry file.
+ *
+ * @param {string} filename
+ * @return {Browserify}
+ */
+
+function getBundler(filename) {
+  return bundlers[filename]
+}
+
+module.exports = {
+  bro,
+  getBundler
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -48,17 +62,33 @@ function transform(opts) {
 /**
  * Return a new browserify bundler.
  *
- * @param  {object} opts
+ * @param  {object} srcOpts
  * @param  {vinyl} file
  * @param  {stream.Transform} transform
  * @return {Browserify}
  */
-function createBundler(opts, file, transform) {
+function createBundler(srcOpts, file, transform) {
+  // make a "clone" of options so we don't accidentally modify the source
+  // options object.
+  var opts = Object.assign({}, srcOpts)
+
   // omit file contents to make browserify-incremental work propery
   // on main entry (#4)
-  opts.entries = file.path
-  if (!opts.basedir) {
+  if (opts.entries === undefined) {
+    // `entries` set in `srcOpts` will not overwrite/change the path of the
+    // file that is bundler, but the `file` that is loaded via vinyl WILL
+    // change entries.
+    opts.entries = file.path
+    if (opts.basedir === undefined || null === opts.basedir) {
+      opts.basedir = path.dirname(file.path)
+    }
+  }
+
+  if (null === opts.basedir) {
     opts.basedir = path.dirname(file.path)
+  }
+  else if (opts.basedir !== undefined) {
+    opts.basedir = path.resolve(opts.basedir)
   }
 
   let bundler = bundlers[file.path]
